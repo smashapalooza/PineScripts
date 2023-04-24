@@ -1,0 +1,103 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Amphibiantrading
+
+//@version=5
+indicator("Data Table", overlay = true)
+
+//constants
+EMA13 = ta.ema(close,13)
+EMA21 = ta.ema(close,21)
+EMA50 = ta.ema(close,50)
+EMA200 = ta.ema(close,200)
+atr = ta.atr(23)
+
+//requests 
+weeklyHigh = request.security(syminfo.tickerid, 'W', high)
+weeklyLow = request.security(syminfo.tickerid, 'W', low)
+yearHigh = request.security(syminfo.tickerid, 'W', ta.highest(high, 52))
+yearLow = request.security(syminfo.tickerid, 'W', ta.lowest(low, 52))
+
+
+//variables
+var float h10 = 0.0
+var table dataTable = table.new(position.top_right, 2, 17, bgcolor = color.new(color.white, 100), frame_color = color.black, frame_width = 2, border_color = color.black, border_width = 2)
+var float ath = 0.0
+var float atl = 9900000
+
+//arrays
+vols = array.new<float>()
+var pps = array.new<int>()
+
+//calculations
+distMa13 = ((close / EMA13) -1 ) * 100
+distMa21 = ((close / EMA21) -1 ) * 100
+distMa50 = ((close / EMA50) -1 ) * 100
+distMa200 = ((close / EMA200) -1 ) *100
+distB1321 = ((EMA13 / EMA21) -1 ) * 100
+distB2150 = ((EMA21 / EMA50) -1 ) * 100
+distB1350 = ((EMA13 / EMA50) -1 ) * 100
+adr = (atr / close) * 100
+closeRange = (close - low) / (high - low) *100
+weeklyCR = (close - weeklyLow) / (weeklyHigh - weeklyLow) * 100
+distYearHigh = ((close - yearHigh) / yearHigh) * 100
+distYearLow = ((close - yearLow) / yearLow) * 100
+ath := high > ath ? high : ath
+atl := low < atl ? low : atl
+distATH = ((ath - close ) / close) * 100
+distATL = ((close - atl) / atl) * 100
+upVol = close > close[1] ? volume : 0
+dnVol = close < close[1] ? volume : 0
+sumUp = math.sum(upVol, 23)
+sumDn = math.sum(dnVol, 23)
+upDnVolRatio = sumUp / sumDn
+
+// pocket pivots
+for i = 0 to 10
+    if close[i] < close[i + 1]
+        array.push(vols, volume[i])
+        h10 := array.max(vols)
+
+pocketpivot = close > close[1] and volume > h10
+
+if pocketpivot
+    pps.push(bar_index)
+
+for [ind, day] in pps
+    if bar_index >= day + 22
+        pps.remove(ind)
+
+
+if barstate.islast
+    table.cell(dataTable, 0, 0, 'Dist. EMA 13: ', text_halign = text.align_left)
+    table.cell(dataTable, 0, 1, 'Dist. EMA 21: ', text_halign = text.align_left)
+    table.cell(dataTable, 0, 2, 'Dist. EMA 50: ', text_halign = text.align_left)
+    table.cell(dataTable, 0, 3, 'Dist. EMA 200: ', text_halign = text.align_left)
+    table.cell(dataTable, 0, 4, 'EMA 13/21:  ', text_halign = text.align_left)
+    table.cell(dataTable, 0, 5, 'EMA 21/50: ', text_halign = text.align_left)
+    table.cell(dataTable, 0, 6, 'EMA 13/50: ', text_halign = text.align_left)
+    table.cell(dataTable, 0, 7, 'U/D Ratio: ', text_halign = text.align_left)
+    table.cell(dataTable, 0, 8, 'PP Count: ', text_halign = text.align_left)
+    table.cell(dataTable, 0, 9, 'ADR: ', text_halign = text.align_left)
+    table.cell(dataTable, 0, 10, 'DCR: ', text_halign = text.align_left)
+    table.cell(dataTable, 0, 11, 'WCR: ', text_halign = text.align_left)
+    table.cell(dataTable, 0, 12, 'Dist. 52WH: ', text_halign = text.align_left)
+    table.cell(dataTable, 0, 13, 'Dist. 52WL: ', text_halign = text.align_left)
+    table.cell(dataTable, 0, 14, 'Dist. ATH: ', text_halign = text.align_left)
+    table.cell(dataTable, 0, 15, 'Dist. ATL: ', text_halign = text.align_left)
+    table.cell(dataTable, 1, 0, str.tostring(distMa13, '#.##') + '%', text_color = (distMa13 > 0 ? color.green : color.red))
+    table.cell(dataTable, 1, 1, str.tostring(distMa21, '#.##') + '%', text_color = (distMa13 > 0 ? color.green : color.red))
+    table.cell(dataTable, 1, 2, str.tostring(distMa50, '#.##') + '%', text_color = (distMa13 > 0 ? color.green : color.red))
+    table.cell(dataTable, 1, 3, str.tostring(distMa200, '#.##') + '%', text_color = (distMa13 > 0 ? color.green : color.red))
+    table.cell(dataTable, 1, 4, str.tostring(distB1321, '#.##') + '%', text_color = color.blue)
+    table.cell(dataTable, 1, 5, str.tostring(distB2150, '#.##') + '%', text_color = color.blue)
+    table.cell(dataTable, 1, 6, str.tostring(distB1350, '#.##') + '%', text_color = color.blue)
+    table.cell(dataTable, 1, 7, str.tostring(upDnVolRatio, '#.##') + '%', text_color = (upDnVolRatio > 2.5 ? color.green : color.red))
+    table.cell(dataTable, 1, 8, str.tostring(pps.size()), text_color = (pps.size() > 0 ? color.green : color.red))
+    table.cell(dataTable, 1, 9, str.tostring(adr, '#.##') + '%', text_color = color.blue)
+    table.cell(dataTable, 1, 10, str.tostring(closeRange, '#') + '%', text_color = (closeRange >= 50 ? color.green : color.red))
+    table.cell(dataTable, 1, 11, str.tostring(weeklyCR, '#') + '%', text_color = (closeRange >= 50 ? color.green : color.red))
+    table.cell(dataTable, 1, 12, str.tostring(distYearHigh, '#') + '%', text_color = (distYearHigh <= 25 ? color.green : color.red))
+    table.cell(dataTable, 1, 13, str.tostring(distYearLow, '#') + '%', text_color = (distYearLow >= 50 ? color.green : color.red))
+    table.cell(dataTable, 1, 14, str.tostring(distATH, '#') + '%', text_color = color.blue)
+    table.cell(dataTable, 1, 15, str.tostring(distATL, '#') + '%', text_color = color.blue)
+    
